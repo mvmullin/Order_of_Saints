@@ -1,0 +1,24 @@
+{
+  "name": "order-of-saints",
+  "version": "1.0.0",
+  "engines": {
+    "node": "6.5.0"
+  },
+  "description": "cooperative arena survival game",
+  "main": "./src/app.js",
+  "scripts": {
+    "start": "node ./src/app.js",
+    "pretest": "eslint ./src --fix",
+    "test": "echo \"Tests complete\""
+  },
+  "author": "Michael Mullin",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^3.5.0",
+    "eslint-config-airbnb": "^11.1.0",
+    "eslint-plugin-import": "^1.15.0"
+  },
+  "dependencies": {
+    "socket.io": "^1.4.8"
+  }
+}
