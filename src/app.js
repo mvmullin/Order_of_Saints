@@ -21,13 +21,13 @@ const app = http.createServer(handler);
 const io = socketio(app);
 
 const movRad = 10;
-let roomName;
+var roomName;
 const roomMax = 3;
-let roomCount = 3;
-const users = {};
+var roomCount = 3;
+var users = {};
 
-const enemySetup = {};
-const enemyTracker = {};
+var enemySetup = {};
+var enemyTracker = {};
 const spawnRange = 20;
 
 // helper functions
@@ -66,7 +66,6 @@ const spawnEnemies = (enemies) => {
       alive: true,
     };
   }
-  console.log('filled enemies');
   return eachEnemy;
 };
 
@@ -75,14 +74,12 @@ const onJoined = (sock) => {
 
   socket.on('join', (data) => {
     socket.name = data.name;
-    users[socket.name] = socket.name;
     // if active room is full, create new room
     if (roomCount >= roomMax)
     {
       roomName = `room${(Math.floor((Math.random() * 1000)) + 1)}`; // set new room to active room
       socket.room = roomName;
       roomCount = 0;
-      console.log(roomName);
       enemySetup[socket.room] =
       {
         numToSpawn: 3,
@@ -92,7 +89,6 @@ const onJoined = (sock) => {
       };
 
       enemyTracker[socket.room] = spawnEnemies(enemySetup[socket.room]);
-      console.log("test x " + enemyTracker[socket.room].x);
       socket.emit('spawnEnemies', enemyTracker[socket.room]);
     }
 
@@ -102,9 +98,13 @@ const onJoined = (sock) => {
       roomCount++;
       socket.emit('spawnEnemies', enemyTracker[socket.room]);
     }
-    
+    users[socket.room] = {};
+    users[socket.room][socket.name] = {};
+    users[socket.room][socket.name].x = data.playerX;
+    users[socket.room][socket.name].y = data.playerY;
     socket.emit('learnRoom', roomName);
     socket.join(socket.room);
+    console.log("done joining");
   });
 };
 
@@ -118,7 +118,6 @@ const onDraw = (sock) => {
 
 const onMove = (sock) => {
   const socket = sock;
-
   socket.on('movement', (data) => {
     const time = new Date().getTime();
     data.coords.lastUpdate = time;
@@ -168,7 +167,13 @@ const onMove = (sock) => {
       data.coords.x = data.winWidth;
     if(data.coords.y > data.winHeight)
       data.coords.y = data.winHeight;
-
+    
+    if(users[data.room] !== null)
+    {
+      users[data.room][data.name].x = data.coords.x;
+      users[data.room][data.name].y= data.coords.y;
+    }
+    
     io.sockets.in(socket.room).emit('move', data);
   });
 };
@@ -177,27 +182,42 @@ const onUpdateEnemies = (sock) => {
   const socket = sock;
   
   socket.on('updateEnemies', (player) => {
-    console.log("player room " + player.room);
-    console.log(enemyTracker[player.room].x);
     var enemies = enemyTracker[player.room];
-    console.log(enemies);
     let keys = Object.keys(enemies);
     
     for(var i=0; i <keys.length; i++){
 			const enemy = enemies[keys[i]];
 			if(enemy.alive){
-				var dx=(player.x-enemy.x);
-				var dy=(player.y-enemy.y);
-				var mag=Math.sqrt(dx*dx+dy*dy);
+        var deltaX = users[player.room][player.name].x - enemy.x;
+        var deltaY = users[player.room][player.name].y - enemy.y;
+        var leastMag = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        for(var user in users[socket.room])
+        {
+          if(user.x !== null)
+          {
+            var dx=(user.x-enemy.x);
+            var dy=(user.y-enemy.y);
+            var mag=Math.sqrt(dx*dx+dy*dy);
+          
+            if(mag < leastMag)
+            {
+              deltaX = dx;
+              deltaY = dy;
+              leastMag = mag;
+            }
+          }
+        }
 				
-				enemy.velX=(dx/mag)*enemy.speed;
-				enemy.velY=(dy/mag)*enemy.speed;
+				enemy.velX = (deltaX/leastMag)*enemy.speed;
+				enemy.velY = (deltaY/leastMag)*enemy.speed;
         
         enemy.x += enemy.velX;
         enemy.y += enemy.velY;
 			}
+      enemyTracker[player.room][i] = enemy;
 		}
-    io.sockets.in(socket.room).emit('enemiesUpdated', enemies);
+    socket.emit('enemiesUpdated', enemyTracker[player.room]);
   });
 };
 
