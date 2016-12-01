@@ -20,7 +20,7 @@
       //object to keep track of pressed keys
       var keysDown = {};
        
-      //draw all shapes in stack
+      //draw all objects
       const draw = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
@@ -41,7 +41,29 @@
           ctx.strokeStyle = drawCall.stroke;
           ctx.lineWidth = 5;
           ctx.stroke();
-          //ctx.closePath();
+          
+          //draw attack if attacking
+          if(drawCall.attacking)
+          {
+            var dx = drawCall.mouse.x - drawCall.x;
+            var dy = drawCall.mouse.y - drawCall.y;
+            
+            var mag = Math.sqrt(dx * dx + dy * dy);
+            dx = dx/mag;
+            dy = dy/mag;
+            
+            var attackX = dx * drawCall.range;
+            var attackY = dy * drawCall.range;
+            
+            ctx.beginPath();
+            ctx.moveTo(drawCall.x, drawCall.y);
+            ctx.lineTo(drawCall.x + attackX, drawCall.y + attackY);
+            ctx.stroke();
+            
+            checkCollisions(drawCall.x + attackX, drawCall.y + attackY);
+            
+            drawCall.attacking = false;
+          }
         }
         
         keys = Object.keys(enemiesToDraw);
@@ -57,18 +79,28 @@
         
       }
       
+      //initialize player properties
       const setupPlayer = () => {
         const time = new Date().getTime();
         let x = canvas.width/2;
         let y = canvas.height/2;
+        let score = 0;
+        let attacking = false;
+        let attackRange = 70;
+        let mouse = {};
         let fill = '#' + ("000000" + Math.random().toString(16).slice(2, 8).toUpperCase()).slice(-6); //code from http://www.daverabideau.com/blog/
         let stroke = '#' + ("000000" + Math.random().toString(16).slice(2, 8).toUpperCase()).slice(-6);
-        draws[user] = {lastUpdate: time, x: x, y: y, rad: 25, fill: fill, stroke: stroke};
+        draws[user] = {lastUpdate: time, x: x, y: y, score: score, attacking: attacking, range: attackRange, mouse: mouse, rad: 25, fill: fill, stroke: stroke};
       }
       
+      //receive enemy properties
       const setupEnemies = (enemies) => {
         enemiesToDraw = enemies;
         draw();
+      }
+      
+      const checkCollisions = (weaponX, weaponY) => {
+        socket.emit('collisionCheck', {weaponX: weaponX, weaponY: weaponY});
       }
       
       
@@ -85,20 +117,17 @@
         draw();
       }
       
-      const handleMove = (data) => {
-        socket.emit('draw', {name: data.name, coords: data.coords});
-      }
-      
-      const handleLeave = (data) =>{
+      /*const handleLeave = (data) =>{
         delete draws[data.user];
-      }
+      }*/
       
+      //send key presses every interval
       const sendKeys = () => {
         socket.emit('movement', {name: user, room: room, keysDown:keysDown, coords: draws[user], winWidth: window.innerWidth, winHeight: window.innerHeight});
       }
       
+      //request enemy update every interval
       const moveEnemies = () => {
-        console.log('reached move enemies');
         socket.emit('updateEnemies', { room: room, name: user });
       }
       
@@ -112,6 +141,7 @@
         redrawCanvas();
       }
       
+      //receive room name
       const displayRoom = (roomName) => {
         console.log("display room");
         room = roomName;
@@ -122,17 +152,17 @@
       
         window.addEventListener('resize', resizeCanvas, false); //resize canvas to window size
         resizeCanvas(); //first canvas draw
-        setupPlayer();
+        setupPlayer(); //inintialize player 
         
         socket = io.connect();
         
+        // join a room, draw, and send updates when connected
         socket.on('connect', () => {
           //add a circle to the data structure upon connecting
           socket.emit('join', {name: user, playerX: draws[user].x, playerY: draws[user].y, spawnWidth: window.innerWidth, spawnHeight: window.innerHeight});
           draw();
           setInterval(sendKeys, 50);
-          setInterval(moveEnemies,50);
-          
+          setInterval(moveEnemies,47);
         });
         
         //keep track of keysDown that are down
@@ -143,14 +173,24 @@
           keysDown[e.keyCode] = false;
         };
         
+        //check for mouse activity
+        document.onmousedown = (e) => {
+          if(e.button === 0)
+          {
+            draws[user].mouse.x = e.pageX - e.target.offsetLeft;
+            draws[user].mouse.y = e.pageY - e.target.offsetTop;
+            draws[user].attacking = true;
+            socket.emit('updateAttack', { name: user, room: room, coords: draws[user] });
+          }
+        };
         
-        
+        //server emissions
         socket.on('learnRoom', displayRoom);
         socket.on('spawnEnemies', setupEnemies);
         socket.on('enemiesUpdated', setupEnemies);
-        socket.on('drawn', handleDraw);
-        socket.on('move', handleMove);
-        socket.on('userLeft', handleLeave);
+        socket.on('move', handleDraw);
+        socket.on('attack', handleDraw);
+        //socket.on('userLeft', handleLeave);
       };
     
     window.onload = init;

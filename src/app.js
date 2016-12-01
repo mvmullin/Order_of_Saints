@@ -24,6 +24,7 @@ const movRad = 10;
 var roomName;
 const roomMax = 3;
 var roomCount = 3;
+var roomNum = 1;
 var users = {};
 
 var enemySetup = {};
@@ -34,25 +35,44 @@ const spawnRange = 20;
 // spawn enemies
 const spawnEnemies = (enemies) => {
   var eachEnemy = {};
+  
+  //fill eachEnemy with x and y spawn points off screen
   for (let i = 0; i < enemies.numToSpawn; i++) {
-    let xSpawn = Math.floor(Math.random() * spawnRange) + 1;
-    if (xSpawn <= spawnRange / 2)
+    var limitXorY = Math.floor(Math.random() *2); //determine which axis to spawn on
+    var xSpawn;
+    var ySpawn;
+    
+    //if 0, spawn on y axis either to the left or right of screen
+    if(limitXorY)
+    {
+      xSpawn = Math.floor(Math.random() * spawnRange) + 1;
+      if (xSpawn <= spawnRange / 2)
       {
-      xSpawn -= 10;
+        xSpawn -= 10;
+      }
+      else
+      {
+        xSpawn += enemies.spawnWidth;
+      }
+      ySpawn = Math.floor(Math.random() * enemies.spawnHeight);
     }
+    
+    //else, spawn on x axis either above or below screen
     else
+    {
+      ySpawn = Math.floor(Math.random() * spawnRange) + 1;
+      if (ySpawn <= spawnRange / 2)
       {
-      xSpawn += enemies.spawnWidth;
-    }
-    let ySpawn = Math.floor(Math.random() * spawnRange) + 1;
-    if (xSpawn <= spawnRange / 2)
+        ySpawn -= 10;
+      }
+      else
       {
-      ySpawn -= 10;
+        ySpawn += enemies.spawnHeight;
+      }
+      xSpawn = Math.floor(Math.random() * enemies.spawnWidth);
     }
-    else
-      {
-      ySpawn += enemies.spawnHeight;
-    }
+    
+    //create enemy
     const time = new Date().getTime();
     eachEnemy[i] = {
       lastUpdate: time,
@@ -77,9 +97,12 @@ const onJoined = (sock) => {
     // if active room is full, create new room
     if (roomCount >= roomMax)
     {
-      roomName = `room${(Math.floor((Math.random() * 1000)) + 1)}`; // set new room to active room
+      roomName = `room${roomNum}`; // set active room to new room
       socket.room = roomName;
       roomCount = 0;
+      roomNum++;
+      
+      //first enemy wave parameters
       enemySetup[socket.room] =
       {
         numToSpawn: 3,
@@ -87,35 +110,35 @@ const onJoined = (sock) => {
         spawnWidth: data.spawnWidth,
         spawnHeight: data.spawnHeight,
       };
-
+      
+      //set up enemies and add to the enemy tracker for this room
       enemyTracker[socket.room] = spawnEnemies(enemySetup[socket.room]);
       socket.emit('spawnEnemies', enemyTracker[socket.room]);
     }
 
-    // else join active room and increment roomCount
+    // else join active room, increment roomCount, and send room enemies to new player
     else {
       socket.room = roomName;
       roomCount++;
       socket.emit('spawnEnemies', enemyTracker[socket.room]);
     }
+    
+    //add player to user tracker by room with x and y position
     users[socket.room] = {};
     users[socket.room][socket.name] = {};
     users[socket.room][socket.name].x = data.playerX;
     users[socket.room][socket.name].y = data.playerY;
-    socket.emit('learnRoom', roomName);
+    socket.emit('learnRoom', roomName); //sent client their room name
     socket.join(socket.room);
-    console.log("done joining");
+  });
+  
+  socket.on('disconnect', () => {
+    socket.leave(socket.room);
+    delete users[socket.room][socket.name];
   });
 };
 
-const onDraw = (sock) => {
-  const socket = sock;
-
-  socket.on('draw', (data) => {
-    io.sockets.in(socket.room).emit('drawn', data);
-  });
-};
-
+//process key presses when requested
 const onMove = (sock) => {
   const socket = sock;
   socket.on('movement', (data) => {
@@ -168,7 +191,7 @@ const onMove = (sock) => {
     if(data.coords.y > data.winHeight)
       data.coords.y = data.winHeight;
     
-    if(users[data.room] !== null)
+    if(data.room)
     {
       users[data.room][data.name].x = data.coords.x;
       users[data.room][data.name].y= data.coords.y;
@@ -178,6 +201,45 @@ const onMove = (sock) => {
   });
 };
 
+//emit to everybody a player's attack status
+const onAttack = (sock) => {
+  const socket = sock;
+  
+  socket.on('updateAttack', (data) => {
+    const time = new Date().getTime();
+    data.coords.lastUpdate = time;
+    
+    io.sockets.in(socket.room).emit('attack', data);
+  });
+};
+
+//check for collisions when player attacks
+const onCollisionCheck = (sock) => {
+  const socket = sock;
+  
+  socket.on('collisionCheck', (data) => {
+    var enemies = enemyTracker[socket.room];
+    let keys = Object.keys(enemies);
+    
+    //check player's weapon tip to see if it is in the enemies radius
+    for(var i=0; i <keys.length; i++){
+			const enemy = enemies[keys[i]];
+			if(enemy.alive){
+        var dx = enemy.x - data.weaponX;
+        var dy = enemy.y - data.weaponY;
+        var mag = Math.sqrt(dx * dx + dy * dy);
+        
+        if(mag <= enemy.rad)
+        {
+          delete enemyTracker[socket.room][i];
+        }
+			}
+		}
+    io.sockets.in(socket.room).emit('enemiesUpdated', enemyTracker[socket.room]);
+  });
+};
+
+//update enemy positions when requested
 const onUpdateEnemies = (sock) => {
   const socket = sock;
   
@@ -185,6 +247,7 @@ const onUpdateEnemies = (sock) => {
     var enemies = enemyTracker[player.room];
     let keys = Object.keys(enemies);
     
+    //determine player to follow for each enemy
     for(var i=0; i <keys.length; i++){
 			const enemy = enemies[keys[i]];
 			if(enemy.alive){
@@ -192,6 +255,7 @@ const onUpdateEnemies = (sock) => {
         var deltaY = users[player.room][player.name].y - enemy.y;
         var leastMag = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
         
+        //find closest player
         for(var user in users[socket.room])
         {
           if(user.x !== null)
@@ -209,6 +273,7 @@ const onUpdateEnemies = (sock) => {
           }
         }
 				
+        //set enemy velocity
 				enemy.velX = (deltaX/leastMag)*enemy.speed;
 				enemy.velY = (deltaY/leastMag)*enemy.speed;
         
@@ -217,26 +282,17 @@ const onUpdateEnemies = (sock) => {
 			}
       enemyTracker[player.room][i] = enemy;
 		}
-    socket.emit('enemiesUpdated', enemyTracker[player.room]);
-  });
-};
-
-const onDisconnect = (sock) => {
-  const socket = sock;
-
-  socket.on('disconnect', () => {
-    socket.broadcast.to(socket.room).emit('userLeft', { user: socket.name });
-    socket.leave(socket.room);
-    delete socket.name;
+    io.sockets.in(player.room).emit('enemiesUpdated', enemyTracker[player.room]);
+    //socket.emit('enemiesUpdated', enemyTracker[player.room]);
   });
 };
 
 io.on('connection', (socket) => {
   onJoined(socket);
-  onDraw(socket);
   onMove(socket);
+  onAttack(socket);
+  onCollisionCheck(socket);
   onUpdateEnemies(socket);
-  onDisconnect(socket);
 });
 
 app.listen(port, (err) => {
