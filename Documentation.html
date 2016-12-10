@@ -47,11 +47,18 @@
         color:#ffd9b3;
       }
     </style>
-    <title>430 Design Document</title>
+    <title>430 Documentation</title>
   </head>
   <body>
 
     <h1>Order of Saints</h1>
+		
+		<div class="bubble">
+			<h2>Post-Mortem</h2>
+			<p>The final stage of my project is way short of the design document, but I plan to continue working on it until it is complete. I have the basic foundation of a multiplayer game where players can join rooms with a 4 user capacity. Players can move with WASD and attack enemies by clicking. Each enemy that is defeated raises the score of each player in the room. Most calculations are done on the server side, while the client makes requests for the information to draw.</p>
+			<p>I spent a lot more time than I would have expected debugging numerous problems I encountered. I did not get the time to merge my final project with the MVC project since my final project uses websockets, and the MVC project does not. I also did not finish implementing a game over state, so the only way to play again is to refresh the page. I definitely overscoped the project given my skill level. </p>
+			<p>I really enjoyed using websockets. It was challenging to debug between the server and client code, but towards the end I had a much better understanding of how they communicate.</p>
+		</div>
     <div class="bubble">
       <h2>Abstract</h2>
       <p>An online cooperative fantasy themed arena survival game where players
