@@ -9,41 +9,67 @@
     <script type="text/babel" >
         "use strict";
       
-      const user = `user${(Math.floor((Math.random() * 1000)) + 1)}`;
+      var user;
       var room;
+      var mouse = {};
       let socket;
-      let draws = {};
-      let enemiesToDraw = {};
       var canvas = document.getElementById('myCanvas');
       var ctx = canvas.getContext('2d');
+			var gameActive = true;
       
       //object to keep track of pressed keys
       var keysDown = {};
        
       //draw all objects
-      const draw = () => {
+      const draw = (data) => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+				
+        //if(gameActive) {
+					//document.getElementById("button").style.display = "none";
+					
+        	ctx.font = "50px Arial";
+        	ctx.fillText(room, 10, 50);
+        	ctx.fillText("Score: " + data.users[user].score, 10, 100);
         
-        ctx.font = "50px Arial";
-        ctx.fillText(room, 10, 50);
+        	let keys = Object.keys(data.users);
         
-        let keys = Object.keys(draws);
-        
-        //draw players
-        for(let i = 0; i < keys.length; i++)
-        {
-          const drawCall = draws[keys[i]];
+        	//draw players
+        	for(let i = 0; i < keys.length; i++)
+        	{
+          	const drawCall = data.users[keys[i]];
           
-          ctx.beginPath();
-          ctx.arc(drawCall.x, drawCall.y, drawCall.rad, 0, 2 * Math.PI);
-          ctx.fillStyle = drawCall.fill;
-          ctx.fill();
-          ctx.strokeStyle = drawCall.stroke;
-          ctx.lineWidth = 5;
-          ctx.stroke();
+          	ctx.beginPath();
+          	ctx.arc(drawCall.x, drawCall.y, drawCall.rad, 0, 2 * Math.PI);
+          	ctx.fillStyle = drawCall.fill;
+          	ctx.fill();
+          	ctx.strokeStyle = drawCall.stroke;
+          	ctx.lineWidth = 5;
+          	ctx.stroke();
           
-          //draw attack if attacking
-          if(drawCall.attacking)
+          	//draw attack if attacking
+          	setTimeout(checkAttack(drawCall), 300);
+          
+        	}
+        
+        	keys = Object.keys(data.enemies);
+        
+        	for(var i = 0; i < keys.length; i++)
+        	{
+          	const enemy = data.enemies[keys[i]];
+          	ctx.beginPath();
+          	ctx.arc(enemy.x, enemy.y, enemy.rad, 0, 2 * Math.PI);
+          	ctx.fillStyle = enemy.fill;
+          	ctx.fill();
+        	}
+				/*} else {
+					ctx.textAlign="center";
+					ctx.fillText("GAME OVER", window.innerWidth/2, window.innerHeight/2);
+					document.getElementById("button").style.display = "block";
+					
+				}*/
+      }
+      const checkAttack = (drawCall) => {
+        if(drawCall.attacking)
           {
             var dx = drawCall.mouse.x - drawCall.x;
             var dy = drawCall.mouse.y - drawCall.y;
@@ -52,8 +78,8 @@
             dx = dx/mag;
             dy = dy/mag;
             
-            var attackX = dx * drawCall.range;
-            var attackY = dy * drawCall.range;
+            var attackX = dx * drawCall.attackRange;
+            var attackY = dy * drawCall.attackRange;
             
             ctx.beginPath();
             ctx.moveTo(drawCall.x, drawCall.y);
@@ -61,74 +87,25 @@
             ctx.stroke();
             
             checkCollisions(drawCall.x + attackX, drawCall.y + attackY);
-            
-            drawCall.attacking = false;
           }
-        }
-        
-        keys = Object.keys(enemiesToDraw);
-        
-        for(var i = 0; i < keys.length; i++)
-        {
-          const enemy = enemiesToDraw[keys[i]];
-          ctx.beginPath();
-          ctx.arc(enemy.x, enemy.y, enemy.rad, 0, 2 * Math.PI);
-          ctx.fillStyle = enemy.fill;
-          ctx.fill();
-        }
-        
-      }
-      
-      //initialize player properties
-      const setupPlayer = () => {
-        const time = new Date().getTime();
-        let x = canvas.width/2;
-        let y = canvas.height/2;
-        let score = 0;
-        let attacking = false;
-        let attackRange = 70;
-        let mouse = {};
-        let fill = '#' + ("000000" + Math.random().toString(16).slice(2, 8).toUpperCase()).slice(-6); //code from http://www.daverabideau.com/blog/
-        let stroke = '#' + ("000000" + Math.random().toString(16).slice(2, 8).toUpperCase()).slice(-6);
-        draws[user] = {lastUpdate: time, x: x, y: y, score: score, attacking: attacking, range: attackRange, mouse: mouse, rad: 25, fill: fill, stroke: stroke};
-      }
-      
-      //receive enemy properties
-      const setupEnemies = (enemies) => {
-        enemiesToDraw = enemies;
-        draw();
       }
       
       const checkCollisions = (weaponX, weaponY) => {
-        socket.emit('collisionCheck', {weaponX: weaponX, weaponY: weaponY});
+        socket.emit('collisionCheck', { weaponX: weaponX, weaponY: weaponY });
       }
-      
-      
-      //add parameters from server to draw stack
-      const handleDraw = (data) => {
-        if(!draws[data.name])
-        {
-          draws[data.name] = data.coords;
-        }
-        else if(data.coords.lastUpdate > draws[data.name].lastUpdate)
-        {
-          draws[data.name] = data.coords;
-        }
-        draw();
-      }
-      
-      /*const handleLeave = (data) =>{
-        delete draws[data.user];
-      }*/
+			
+			const checkAlive = () => {
+				socket.emit('aliveCheck');
+			}
       
       //send key presses every interval
       const sendKeys = () => {
-        socket.emit('movement', {name: user, room: room, keysDown:keysDown, coords: draws[user], winWidth: window.innerWidth, winHeight: window.innerHeight});
+        socket.emit('movement', { keysDown:keysDown, winWidth: window.innerWidth, winHeight: window.innerHeight});
       }
       
       //request enemy update every interval
       const moveEnemies = () => {
-        socket.emit('updateEnemies', { room: room, name: user });
+        socket.emit('updateEnemies');
       }
       
       const redrawCanvas = () => {
@@ -142,27 +119,31 @@
       }
       
       //receive room name
-      const displayRoom = (roomName) => {
-        console.log("display room");
-        room = roomName;
-        draw();
+      const displayRoom = (data) => {
+        room = data.room;
+				user = data.name;
       }
+			
+			/*const changeActive = (data) => {
+				gameActive = !gameActive;
+				draw(data);
+			}*/
     
       const init = () => {
-      
         window.addEventListener('resize', resizeCanvas, false); //resize canvas to window size
         resizeCanvas(); //first canvas draw
-        setupPlayer(); //inintialize player 
-        
+        console.log(gameActive);
         socket = io.connect();
         
         // join a room, draw, and send updates when connected
         socket.on('connect', () => {
-          //add a circle to the data structure upon connecting
-          socket.emit('join', {name: user, playerX: draws[user].x, playerY: draws[user].y, spawnWidth: window.innerWidth, spawnHeight: window.innerHeight});
-          draw();
+          //join a room as a new user
+					//if(gameActive) {
+          socket.emit('join', { spawnWidth: window.innerWidth, spawnHeight: window.innerHeight});
           setInterval(sendKeys, 50);
           setInterval(moveEnemies,47);
+					setInterval(checkAlive, 53);
+					//}
         });
         
         //keep track of keysDown that are down
@@ -177,19 +158,18 @@
         document.onmousedown = (e) => {
           if(e.button === 0)
           {
-            draws[user].mouse.x = e.pageX - e.target.offsetLeft;
-            draws[user].mouse.y = e.pageY - e.target.offsetTop;
-            draws[user].attacking = true;
-            socket.emit('updateAttack', { name: user, room: room, coords: draws[user] });
+            mouse.x = e.pageX - e.target.offsetLeft;
+            mouse.y = e.pageY - e.target.offsetTop;
+            socket.emit('updateAttack', { name: user, room: room, mouse: mouse });
           }
         };
+				
+				//document.getElementById("button").onclick = changeActive();
         
         //server emissions
         socket.on('learnRoom', displayRoom);
-        socket.on('spawnEnemies', setupEnemies);
-        socket.on('enemiesUpdated', setupEnemies);
-        socket.on('move', handleDraw);
-        socket.on('attack', handleDraw);
+        socket.on('draw', draw);
+				//socket.on('activityChange', changeActive);
         //socket.on('userLeft', handleLeave);
       };
     
@@ -199,5 +179,6 @@
 </head>
 <body>
   <canvas id="myCanvas"></canvas>
+	<!-- <a id="button" href="#" >Play Again</a> -->
 </body>
 </html>

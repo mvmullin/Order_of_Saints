@@ -1,0 +1,144 @@
+ <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <link href='https://fonts.googleapis.com/css?family=League' rel='stylesheet' type='text/css'>
+    <style>
+      body{
+        width:50%;
+        margin:5em auto;
+        background-color:#8c8c8c;
+      }
+      h1{
+        color:#330000;
+        font-size: 3em;
+        font-weight:bold;
+        text-shadow: -.05em .05em #FFF;
+      }
+      p{
+        width:50em;
+        color:#a6a6a6;
+        font-size:1.1em;
+      }
+      ul{
+        width:50em;
+        color:#a6a6a6;
+        font-size:1.1em;
+      }
+      figure{
+        display:inline-block;
+      }
+      figcaption{
+        text-align:center;
+      }
+      .bubble{
+        background-color: #330000;
+        color: #FFF;
+        padding:1em;
+        margin:.5em 0;
+        border-radius: 2em;
+        //box-shadow: -1em 1em 1em #1A0A00;
+        max-width:60em;
+      }
+      a:link{
+        color:#99ddff;
+      }
+      a:visited{
+        color:#ffd9b3;
+      }
+    </style>
+    <title>430 Design Document</title>
+  </head>
+  <body>
+
+    <h1>Order of Saints</h1>
+    <div class="bubble">
+      <h2>Abstract</h2>
+      <p>An online cooperative fantasy themed arena survival game where players
+      take on roles in the "Order of Saints", defending mankind from an endless onslaught
+      of demons that have been summoned into the world.</p>
+    </div>
+    
+    <div class="bubble">
+      <h2>High Level Concept</h2>
+      <p>Players will create or join existing rooms that can be set to public or private to allow play with strangers
+      and/or friends. Once in a room, players will choose from several playable characters with different abilities and
+      combat styles. The host will select a map, that will be a single scrolling background image, and will have the power
+      to start the game.</p>
+      <p>Once the game has launched, players will spawn together in the middle of the map, and waves of enemies will commence.
+      Players will have to strategically use their abilities and work together to survive for as many rounds as they can. When a
+      player dies they will have to wait to be revived, or leave the game. When all players have died they will be returned to
+      the character selection screen.</p>
+    </div>
+    
+    <div class="bubble">
+      <h2>Client - Javascript</h2>
+      <ul>
+        <li>User Input</li>
+        <li>Event Tracking (e.g. Collision Detection)</li>
+        <li>Data Tracking (e.g Player Position)</li>
+      </ul>
+    </div>
+    
+    <div class="bubble">
+      <h2>Server</h2>
+      <ul>
+        <li>Data Transference Amongst Users</li>
+        <li>Event Resolution (e.g. Calculating Collision Resolution)</li>
+      </ul>
+    </div>
+    
+    <div class="bubble">
+      <h2>Mockups</h2>
+      <figure>
+        <img src="assets/character-selection.jpg" alt="Character Selection Mockup" style="width:260px;height:182px;">
+        <figcaption>(Character Selection Screen)</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/gameplay.jpg" alt="Gameplay Mockup" style="width:260px;height:182px;">
+        <figcaption>(Gameplay Screen)</figcaption>
+      </figure>
+    </div>
+
+    
+    <div class="bubble">
+      <h2>Story</h2>
+      <p>Human sin has finally undone the world. Temptation has lead to the summoning of demons under
+      the false pretense that they could be controlled for fulfilling human desire. Pride, envy, greed, lust
+      wrath, gluttony, sloth...one order has renounced all of these traits and resisted temptation. They are
+      The Order of Saints, and they have been blessed with the power to repel the demon's onslaught and redeem humanity.
+      They are the only hope, the last line of defense. </p>
+    </div>
+    
+    <div class="bubble">
+      <h2>Mechanics and Controls</h2>
+      <ul>
+        <li>Menu Navigation and Selection - Mouse</li>
+        <li>Movement - WASD and Arrow Keys</li>
+        <li>Basic Attack - Mouse</li>
+        <li>Powers - QE and Spacebar</li>
+      </ul>
+    </div>
+    
+    <div class="bubble">
+      <h2>Assets</h2>
+      <p>Sprite sheets for character movement and attacks, and background images for setting.
+      If time permits they will be created, if not they will temporarily filled in from somewhere like
+      <a href="http://opengameart.org/content/four-characters-my-lpc-entries"> opengameart.org </a></p>
+    </div>
+    
+    <div class="bubble">
+      <h2>Inspirations</h2>
+      <ul>Granama - <a href="https://granama.herokuapp.com/">granama.herokuapp.com</a> (System Interaction and Gameplay)</ul>
+      <ul>Inotia III - <a href="https://www.google.com/search?q=inotia+3&source=lnms&tbm=isch&sa=X&ved=0ahUKEwj2-Y_Wy7PPAhUDPD
+      4KHSnqArwQ_AUICCgB&biw=1920&bih=971#imgrc=5RP5PS0utjOGMM%3A">Screenshot</a> (Art Style and Perspective)</ul>
+    </div>
+    
+    <div class="bubble">
+      <h2>Bare Minimum</h2>
+      <p>The first goal will be to have one playable character that all players will use with one power, one map, and one enemy type.
+      Basic functionality will be the priority before implementing things like private vs public room creation.</p>
+    </div>
+
+  </body>
+</html>
